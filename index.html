@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let engine = new BABYLON.Engine(canvas, true);
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.enablePhysics(undefined, new BABYLON.OimoJSPlugin());
+            let physicsEngine = scene.getPhysicsEngine();
+            physicsEngine.setGravity(new BABYLON.Vector3(0, -3.0, 0))
+
+            let bgcolor = BABYLON.Color3.FromHexString('#333333');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+            scene.gravity = new BABYLON.Vector3(0, -0.9, 0);
+            scene.collisionsEnabled = true;
+
+            let camera = new BABYLON.ArcRotateCamera("camera",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(60),
+                30, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.5;
+            sky.diffuse = bgcolor;
+
+            let attachDragBehavior = (mesh) => {
+                let pointerDragBehavior = new BABYLON.PointerDragBehavior({});
+                // Use drag plane in world space
+                pointerDragBehavior.useObjectOrientationForDragging = false;
+                mesh.addBehavior(pointerDragBehavior);
+            }
+
+            function createMesh(x, y, z, size, mass) {
+                let mesh = BABYLON.MeshBuilder.CreateSphere("ballon", { diameter: size, segments: 12 }, scene);
+                mesh.position.set(x, y, z);
+
+                mesh.material = new BABYLON.StandardMaterial("", scene);
+                mesh.material.alpha = 0.7;
+                mesh.material.emissiveColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+
+                mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: mass, friction: 2, restitution: 0 }, scene);
+                attachDragBehavior(mesh);
+                return mesh;
+            }
+
+
+            let max = 300;
+            let m0 = createMesh(0, 5, 0, 5, 0);
+
+            let mList = []
+
+            for (let i = 0; i < max; i++) {
+                let x = m0.position.x + 10 - 20 * Math.random();
+                let y = m0.position.y + 10 - 20 * Math.random();
+                let z = m0.position.z + 10 - 20 * Math.random();
+                let m1 = createMesh(x, y, z, 1, 1);
+                mList.push(m1)
+            }
+
+
+            let positions = m0.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+
+            scene.registerBeforeRender(function () {
+                let i = Math.floor(Math.random() * positions.length);
+                var startPoint = new BABYLON.Vector3(
+                    m0.position.x + positions[i],
+                    m0.position.y + positions[i + 1],
+                    m0.position.z + positions[i + 2]
+                );
+                var endPoint = new BABYLON.Vector3(m0.position.x, m0.position.y, m0.position.z);
+                let v = endPoint.subtract(startPoint);
+                mList.forEach(m1 => {
+                    let v = endPoint.subtract(m1.position).normalize().scale(0.25)
+                    m1.physicsImpostor.applyForce(v, m1.position)
+                })
+
+            });
+
+
+            return scene;
+        };
+
+
+
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
